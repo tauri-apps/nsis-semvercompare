@@ -1,6 +1,6 @@
 use std::{fs, io, path::Path};
 
-use pluginapi::{exdll_init, popstring, pushint, stack_t, wchar_t};
+use nsis_plugin_api::*;
 use progress_streams::ProgressReader;
 use windows_sys::Win32::{
     Foundation::HWND,
@@ -19,20 +19,15 @@ use windows_sys::Win32::{
 /// # Safety
 ///
 /// This function always expects 2 strings on the stack ($1: url, $2: path) and will panic otherwise.
-#[no_mangle]
-pub unsafe extern "C" fn Download(
-    hwnd_parent: HWND,
-    string_size: u32,
-    variables: *mut wchar_t,
-    stacktop: *mut *mut stack_t,
-) {
+#[nsis_fn]
+fn Download() {
     exdll_init(string_size, variables, stacktop);
 
     let url = popstring().unwrap();
     let path = popstring().unwrap();
 
     let status = download_file(hwnd_parent, &url, &path);
-    pushint(status);
+    pushint(status).unwrap();
 }
 
 fn download_file(hwnd_parent: HWND, url: &str, path: &str) -> i32 {
@@ -139,15 +134,16 @@ fn download_file(hwnd_parent: HWND, url: &str, path: &str) -> i32 {
         let percentage = (read as f64 / total as f64) * 100.0;
         unsafe { SendMessageW(progress_bar, PBM_SETPOS, percentage as _, 0) };
 
-        let text = pluginapi::encode_wide(format!(
+        let text = encode_wide(&format!(
             "{} / {} KiB  - {:.2}%",
             read / 1024,
             total / 1024,
             percentage,
-        ));
+        ))
+        .unwrap();
         unsafe { SetWindowTextW(progress_text, text.as_ptr()) };
 
-        let text = pluginapi::encode_wide(format!("Downloading {} ...", url));
+        let text = encode_wide(&format!("Downloading {} ...", url)).unwrap();
         unsafe { SetWindowTextW(downloading_text, text.as_ptr()) };
 
         if percentage >= 100. && !details_section_resized_back {
@@ -177,7 +173,7 @@ fn download_file(hwnd_parent: HWND, url: &str, path: &str) -> i32 {
 }
 
 fn find_window(parent: HWND, class: impl AsRef<str>) -> HWND {
-    let class = pluginapi::encode_wide(class.as_ref());
+    let class = encode_wide(class.as_ref()).unwrap();
     unsafe { FindWindowExW(parent, 0, class.as_ptr(), std::ptr::null()) }
 }
 

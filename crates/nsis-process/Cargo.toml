@@ -6,8 +6,11 @@ edition = { workspace = true }
 license = { workspace = true }
 
 [lib]
-crate-type = [ "rlib", "cdylib" ]
+crate-type = ["cdylib"]
+
+[build-dependencies]
+static_vcruntime = { workspace = true }
 
 [dependencies]
-pluginapi = { workspace = true }
+nsis-plugin-api = { workspace = true }
 windows-sys = { workspace = true }

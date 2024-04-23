@@ -11,5 +11,5 @@ crate-type = ["rlib", "cdylib"]
 [dependencies]
 ureq = { version = "2", default-features = false, features = ["tls"] }
 progress-streams = "1.1"
-pluginapi = { workspace = true }
+nsis-plugin-api = { workspace = true }
 windows-sys = { workspace = true }

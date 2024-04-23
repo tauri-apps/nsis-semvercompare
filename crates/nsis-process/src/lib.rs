@@ -1,9 +1,15 @@
-use std::{ffi::c_void, mem, ptr};
+#![no_std]
+#![no_main]
 
-use pluginapi::{decode_wide, exdll_init, popstring, pushint, stack_t, wchar_t};
+extern crate alloc;
 
+use alloc::vec;
+use alloc::vec::Vec;
+use core::{ffi::c_void, mem, ptr};
+
+use nsis_plugin_api::*;
 use windows_sys::Win32::{
-    Foundation::{CloseHandle, HANDLE, HWND},
+    Foundation::{CloseHandle, HANDLE},
     Security::{EqualSid, GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER},
     System::{
         Diagnostics::ToolHelp::{
@@ -11,32 +17,27 @@ use windows_sys::Win32::{
             TH32CS_SNAPPROCESS,
         },
         Threading::{
-            OpenProcess, OpenProcessToken, TerminateProcess, PROCESS_QUERY_INFORMATION,
-            PROCESS_TERMINATE,
+            GetCurrentProcessId, OpenProcess, OpenProcessToken, TerminateProcess,
+            PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE,
         },
     },
 };
+
+nsis_plugin!();
 
 /// Test if there is a running process with the given name, skipping processes with the host's pid. The input and process names are case-insensitive.
 ///
 /// # Safety
 ///
 /// This function always expects 1 string on the stack ($1: name) and will panic otherwise.
-#[no_mangle]
-pub unsafe extern "C" fn FindProcess(
-    _hwnd_parent: HWND,
-    string_size: u32,
-    variables: *mut wchar_t,
-    stacktop: *mut *mut stack_t,
-) {
-    exdll_init(string_size, variables, stacktop);
-
+#[nsis_fn]
+fn FindProcess() {
     let name = popstring().unwrap();
 
     if !get_processes(&name).is_empty() {
-        pushint(0);
+        pushint(0).unwrap();
     } else {
-        pushint(1);
+        pushint(1).unwrap();
     }
 }
 
@@ -45,33 +46,26 @@ pub unsafe extern "C" fn FindProcess(
 /// # Safety
 ///
 /// This function always expects 1 string on the stack ($1: name) and will panic otherwise.
-#[no_mangle]
-pub unsafe extern "C" fn FindProcessCurrentUser(
-    _hwnd_parent: HWND,
-    string_size: u32,
-    variables: *mut wchar_t,
-    stacktop: *mut *mut stack_t,
-) {
-    exdll_init(string_size, variables, stacktop);
-
+#[nsis_fn]
+fn FindProcessCurrentUser() {
     let name = popstring().unwrap();
 
     let processes = get_processes(&name);
 
-    if let Some(user_sid) = get_sid(std::process::id()) {
+    if let Some(user_sid) = get_sid(GetCurrentProcessId()) {
         if processes
             .into_iter()
             .any(|pid| belongs_to_user(user_sid, pid))
         {
-            pushint(0);
+            pushint(0).unwrap();
         } else {
-            pushint(1);
+            pushint(1).unwrap();
         }
     // Fall back to perMachine checks if we can't get current user id
     } else if processes.is_empty() {
-        pushint(1);
+        pushint(1).unwrap();
     } else {
-        pushint(0);
+        pushint(0).unwrap();
     }
 }
 
@@ -80,23 +74,16 @@ pub unsafe extern "C" fn FindProcessCurrentUser(
 /// # Safety
 ///
 /// This function always expects 1 string on the stack ($1: name) and will panic otherwise.
-#[no_mangle]
-pub unsafe extern "C" fn KillProcess(
-    _hwnd_parent: HWND,
-    string_size: u32,
-    variables: *mut wchar_t,
-    stacktop: *mut *mut stack_t,
-) {
-    exdll_init(string_size, variables, stacktop);
-
+#[nsis_fn]
+fn KillProcess() {
     let name = popstring().unwrap();
 
     let processes = get_processes(&name);
 
     if !processes.is_empty() && processes.into_iter().map(kill).all(|b| b) {
-        pushint(0);
+        pushint(0).unwrap();
     } else {
-        pushint(1);
+        pushint(1).unwrap();
     }
 }
 
@@ -105,25 +92,18 @@ pub unsafe extern "C" fn KillProcess(
 /// # Safety
 ///
 /// This function always expects 1 string on the stack ($1: name) and will panic otherwise.
-#[no_mangle]
-pub unsafe extern "C" fn KillProcessCurrentUser(
-    _hwnd_parent: HWND,
-    string_size: u32,
-    variables: *mut wchar_t,
-    stacktop: *mut *mut stack_t,
-) {
-    exdll_init(string_size, variables, stacktop);
-
+#[nsis_fn]
+fn KillProcessCurrentUser() {
     let name = popstring().unwrap();
 
     let processes = get_processes(&name);
 
     if processes.is_empty() {
-        pushint(1);
+        pushint(1).unwrap();
         return;
     }
 
-    let success = if let Some(user_sid) = get_sid(std::process::id()) {
+    let success = if let Some(user_sid) = get_sid(GetCurrentProcessId()) {
         processes
             .into_iter()
             .filter(|pid| belongs_to_user(user_sid, *pid))
@@ -134,9 +114,9 @@ pub unsafe extern "C" fn KillProcessCurrentUser(
     };
 
     if success {
-        pushint(0)
+        pushint(0).unwrap()
     } else {
-        pushint(1)
+        pushint(1).unwrap()
     }
 }
 
@@ -204,7 +184,7 @@ unsafe fn get_sid(pid: u32) -> Option<*mut c_void> {
 }
 
 fn get_processes(name: &str) -> Vec<u32> {
-    let current_pid = std::process::id();
+    let current_pid = unsafe { GetCurrentProcessId() };
     let mut processes = Vec::new();
 
     unsafe {
@@ -219,7 +199,6 @@ fn get_processes(name: &str) -> Vec<u32> {
             while Process32NextW(handle, &mut process) != 0 {
                 if current_pid != process.th32ProcessID
                     && decode_wide(&process.szExeFile)
-                        .to_str()
                         .unwrap_or_default()
                         .to_lowercase()
                         == name.to_lowercase()
@@ -242,14 +221,12 @@ mod tests {
     #[test]
     fn find_process() {
         let processes = get_processes("explorer.exe");
-        dbg!(&processes);
         assert!(!processes.is_empty());
     }
 
     #[test]
     fn kill_process() {
         let processes = get_processes("something_that_doesnt_exist.exe");
-        dbg!(&processes);
         // TODO: maybe find some way to spawn a dummy process we can kill here?
         // This will return true on empty iterators so it's basically no-op right now
         assert!(processes.into_iter().map(kill).all(|b| b));
