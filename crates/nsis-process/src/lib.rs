@@ -30,13 +30,13 @@ nsis_plugin!();
 ///
 /// This function always expects 1 string on the stack ($1: name) and will panic otherwise.
 #[nsis_fn]
-fn FindProcess() {
-    let name = popstring();
+fn FindProcess() -> Result<(), Error> {
+    let name = popstr()?;
 
     if !get_processes(&name).is_empty() {
-        push(&ZERO);
+        push(&ZERO)
     } else {
-        push(&ONE);
+        push(&ONE)
     }
 }
 
@@ -46,8 +46,8 @@ fn FindProcess() {
 ///
 /// This function always expects 1 string on the stack ($1: name) and will panic otherwise.
 #[nsis_fn]
-fn FindProcessCurrentUser() {
-    let name = popstring();
+fn FindProcessCurrentUser() -> Result<(), Error> {
+    let name = popstr()?;
 
     let processes = get_processes(&name);
 
@@ -56,15 +56,15 @@ fn FindProcessCurrentUser() {
             .into_iter()
             .any(|pid| belongs_to_user(user_sid, pid))
         {
-            push(&ZERO);
+            push(&ZERO)
         } else {
-            push(&ONE);
+            push(&ONE)
         }
     // Fall back to perMachine checks if we can't get current user id
     } else if processes.is_empty() {
-        push(&ONE);
+        push(&ONE)
     } else {
-        push(&ZERO);
+        push(&ZERO)
     }
 }
 
@@ -74,15 +74,15 @@ fn FindProcessCurrentUser() {
 ///
 /// This function always expects 1 string on the stack ($1: name) and will panic otherwise.
 #[nsis_fn]
-fn KillProcess() {
-    let name = popstring();
+fn KillProcess() -> Result<(), Error> {
+    let name = popstr()?;
 
     let processes = get_processes(&name);
 
     if !processes.is_empty() && processes.into_iter().map(kill).all(|b| b) {
-        push(&ZERO);
+        push(&ZERO)
     } else {
-        push(&ONE);
+        push(&ONE)
     }
 }
 
@@ -92,14 +92,13 @@ fn KillProcess() {
 ///
 /// This function always expects 1 string on the stack ($1: name) and will panic otherwise.
 #[nsis_fn]
-fn KillProcessCurrentUser() {
-    let name = popstring();
+fn KillProcessCurrentUser() -> Result<(), Error> {
+    let name = popstr()?;
 
     let processes = get_processes(&name);
 
     if processes.is_empty() {
-        push(&ONE);
-        return;
+        return push(&ONE);
     }
 
     let success = if let Some(user_sid) = get_sid(GetCurrentProcessId()) {

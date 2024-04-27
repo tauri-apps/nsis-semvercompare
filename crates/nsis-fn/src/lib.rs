@@ -1,6 +1,7 @@
 use proc_macro::TokenStream;
+use proc_macro2::Span;
 use quote::quote;
-use syn::{parse::Parse, parse_macro_input, ItemFn};
+use syn::{parse::Parse, parse_macro_input, Ident, ItemFn};
 
 struct NsisFn {
     func: ItemFn,
@@ -22,7 +23,12 @@ pub fn nsis_fn(_attr: TokenStream, tokens: TokenStream) -> TokenStream {
     let block = func.block;
     let attrs = func.attrs;
 
+    let new_ident = Ident::new(&format!("__{}", ident.to_string()), Span::call_site());
+
     quote! {
+        #[inline(always)]
+        pub unsafe fn #new_ident() -> Result<(), ::nsis_plugin_api::Error> #block
+
         #(#attrs)*
         #[no_mangle]
         #[allow(non_standard_style)]
@@ -33,7 +39,9 @@ pub fn nsis_fn(_attr: TokenStream, tokens: TokenStream) -> TokenStream {
             stacktop: *mut *mut ::nsis_plugin_api::stack_t,
         ) {
             ::nsis_plugin_api::exdll_init(string_size, variables, stacktop);
-            #block
+            if let Err(e) = #new_ident() {
+                e.push_err();
+            }
         }
     }
     .into()

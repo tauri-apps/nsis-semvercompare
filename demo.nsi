@@ -4,11 +4,8 @@ Unicode true
 ShowInstDetails show
 
 !addplugindir ".\target\i686-pc-windows-msvc\release"
-!addplugindir ".\target\i686-pc-windows-msvc\debug"
 !addplugindir "$%CARGO_TARGET_DIR%\i686-pc-windows-msvc\release"
-!addplugindir "$%CARGO_TARGET_DIR%\i686-pc-windows-msvc\debug"
 !addplugindir "$%CARGO_BUILD_TARGET_DIR%\i686-pc-windows-msvc\release"
-!addplugindir "$%CARGO_BUILD_TARGET_DIR%\i686-pc-windows-msvc\debug"
 
 !include "MUI2.nsh"
 
