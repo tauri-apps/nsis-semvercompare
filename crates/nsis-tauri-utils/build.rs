@@ -1,15 +1,13 @@
-use std::{fs::File, io::Write};
-
 fn main() {
     write_plugins();
-    static_vcruntime::metabuild();
+    println!("cargo::rustc-link-arg=/ENTRY:DllMain")
 }
 
 fn write_plugins() {
     let out_dir = std::env::var("OUT_DIR").unwrap();
     let path = format!("{out_dir}/combined_libs.rs");
 
-    let mut file = File::options()
+    let mut file = std::fs::File::options()
         .truncate(true)
         .write(true)
         .create(true)
@@ -23,13 +21,12 @@ fn write_plugins() {
             .lines()
             .filter(|l| {
                 !(l.contains("#![no_std]")
-                    || l.contains("#![no_main]")
                     || l.contains("use nsis_plugin_api::*;")
                     || l.contains("nsis_plugin!();"))
             })
             .collect::<Vec<&str>>();
 
         let content = lines.join("\n");
-        file.write_all(content.as_bytes()).unwrap();
+        std::io::Write::write_all(&mut file, content.as_bytes()).unwrap();
     }
 }

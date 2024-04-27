@@ -23,11 +23,11 @@ use windows_sys::Win32::{
 fn Download() {
     exdll_init(string_size, variables, stacktop);
 
-    let url = popstring().unwrap();
-    let path = popstring().unwrap();
+    let url = popstring();
+    let path = popstring();
 
     let status = download_file(hwnd_parent, &url, &path);
-    pushint(status).unwrap();
+    pushint(status);
 }
 
 fn download_file(hwnd_parent: HWND, url: &str, path: &str) -> i32 {
@@ -139,11 +139,10 @@ fn download_file(hwnd_parent: HWND, url: &str, path: &str) -> i32 {
             read / 1024,
             total / 1024,
             percentage,
-        ))
-        .unwrap();
+        ));
         unsafe { SetWindowTextW(progress_text, text.as_ptr()) };
 
-        let text = encode_wide(&format!("Downloading {} ...", url)).unwrap();
+        let text = encode_wide(&format!("Downloading {} ...", url));
         unsafe { SetWindowTextW(downloading_text, text.as_ptr()) };
 
         if percentage >= 100. && !details_section_resized_back {
@@ -173,7 +172,7 @@ fn download_file(hwnd_parent: HWND, url: &str, path: &str) -> i32 {
 }
 
 fn find_window(parent: HWND, class: impl AsRef<str>) -> HWND {
-    let class = encode_wide(class.as_ref()).unwrap();
+    let class = encode_wide(class.as_ref());
     unsafe { FindWindowExW(parent, 0, class.as_ptr(), std::ptr::null()) }
 }
 

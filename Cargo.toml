@@ -1,5 +1,6 @@
 [workspace]
 members = ["crates/*"]
+exclude = ["crates/nsis-download"]
 resolver = "2"
 
 [workspace.package]
@@ -8,7 +9,6 @@ edition = "2021"
 license = "MIT or Apache-2.0"
 
 [workspace.dependencies]
-static_vcruntime = "2.0"
 nsis-plugin-api = { path = "./crates/nsis-plugin-api" }
 
 [workspace.dependencies.windows-sys]

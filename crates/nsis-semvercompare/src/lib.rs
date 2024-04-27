@@ -1,5 +1,4 @@
 #![no_std]
-#![no_main]
 
 use core::cmp::Ordering;
 
@@ -10,16 +9,22 @@ nsis_plugin!();
 
 /// Compare two semantic versions.
 ///
+/// Returns `0` if equal, `1` if `$v1` is newer and `-1` if `$v2` is newer.
+///
 /// # Safety
 ///
-/// This function always expects 2 strings on the stack ($1: version1, $2: version2) and will panic otherwise.
+/// This function always expects 2 strings on the stack ($v1, $v2) and will panic otherwise.
 #[nsis_fn]
 fn SemverCompare() {
-    let v1 = popstring().unwrap();
-    let v2 = popstring().unwrap();
+    let v1 = popstring();
+    let v2 = popstring();
 
-    let ret = compare(&v1, &v2);
-    pushint(ret).unwrap()
+    match compare(&v1, &v2) {
+        -1 => push(&NEGATIVE_ONE),
+        0 => push(&ZERO),
+        1 => push(&ONE),
+        _ => unreachable!(),
+    }
 }
 
 fn compare(v1: &str, v2: &str) -> i32 {

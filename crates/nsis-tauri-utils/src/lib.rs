@@ -1,5 +1,4 @@
 #![no_std]
-#![no_main]
 
 use nsis_plugin_api::*;
 

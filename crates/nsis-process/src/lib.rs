@@ -1,5 +1,4 @@
 #![no_std]
-#![no_main]
 
 extern crate alloc;
 
@@ -32,12 +31,12 @@ nsis_plugin!();
 /// This function always expects 1 string on the stack ($1: name) and will panic otherwise.
 #[nsis_fn]
 fn FindProcess() {
-    let name = popstring().unwrap();
+    let name = popstring();
 
     if !get_processes(&name).is_empty() {
-        pushint(0).unwrap();
+        push(&ZERO);
     } else {
-        pushint(1).unwrap();
+        push(&ONE);
     }
 }
 
@@ -48,7 +47,7 @@ fn FindProcess() {
 /// This function always expects 1 string on the stack ($1: name) and will panic otherwise.
 #[nsis_fn]
 fn FindProcessCurrentUser() {
-    let name = popstring().unwrap();
+    let name = popstring();
 
     let processes = get_processes(&name);
 
@@ -57,15 +56,15 @@ fn FindProcessCurrentUser() {
             .into_iter()
             .any(|pid| belongs_to_user(user_sid, pid))
         {
-            pushint(0).unwrap();
+            push(&ZERO);
         } else {
-            pushint(1).unwrap();
+            push(&ONE);
         }
     // Fall back to perMachine checks if we can't get current user id
     } else if processes.is_empty() {
-        pushint(1).unwrap();
+        push(&ONE);
     } else {
-        pushint(0).unwrap();
+        push(&ZERO);
     }
 }
 
@@ -76,14 +75,14 @@ fn FindProcessCurrentUser() {
 /// This function always expects 1 string on the stack ($1: name) and will panic otherwise.
 #[nsis_fn]
 fn KillProcess() {
-    let name = popstring().unwrap();
+    let name = popstring();
 
     let processes = get_processes(&name);
 
     if !processes.is_empty() && processes.into_iter().map(kill).all(|b| b) {
-        pushint(0).unwrap();
+        push(&ZERO);
     } else {
-        pushint(1).unwrap();
+        push(&ONE);
     }
 }
 
@@ -94,12 +93,12 @@ fn KillProcess() {
 /// This function always expects 1 string on the stack ($1: name) and will panic otherwise.
 #[nsis_fn]
 fn KillProcessCurrentUser() {
-    let name = popstring().unwrap();
+    let name = popstring();
 
     let processes = get_processes(&name);
 
     if processes.is_empty() {
-        pushint(1).unwrap();
+        push(&ONE);
         return;
     }
 
@@ -114,9 +113,9 @@ fn KillProcessCurrentUser() {
     };
 
     if success {
-        pushint(0).unwrap()
+        push(&ZERO)
     } else {
-        pushint(1).unwrap()
+        push(&ONE)
     }
 }
 
@@ -198,10 +197,7 @@ fn get_processes(name: &str) -> Vec<u32> {
         if Process32FirstW(handle, &mut process) != 0 {
             while Process32NextW(handle, &mut process) != 0 {
                 if current_pid != process.th32ProcessID
-                    && decode_wide(&process.szExeFile)
-                        .unwrap_or_default()
-                        .to_lowercase()
-                        == name.to_lowercase()
+                    && decode_wide(&process.szExeFile).to_lowercase() == name.to_lowercase()
                 {
                     processes.push(process.th32ProcessID);
                 }
