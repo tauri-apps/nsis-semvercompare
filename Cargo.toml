@@ -1,6 +1,5 @@
 [workspace]
 members = ["crates/*"]
-exclude = ["crates/nsis-download"]
 resolver = "2"
 
 [workspace.package]

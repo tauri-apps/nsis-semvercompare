@@ -15,14 +15,11 @@ ShowInstDetails show
 Section
     nsis_semvercompare::SemverCompare "1.0.0" "1.1.0"
     Pop $1
-    DetailPrint $1
+    DetailPrint "SemverCompare(1.0.0, 1.1.0): $1"
     nsis_process::FindProcess "explorer.exe"
     Pop $1
-    DetailPrint $1
+    DetailPrint "FindProcess(explorer.exe): $1"
     nsis_process::FindProcess "abcdef.exe"
     Pop $1
-    DetailPrint $1
-    ; nsis_download::Download "https://go.microsoft.com/fwlink/p/?LinkId=2124703" "wv2setup.exe"
-    ; Pop $1
-    ; DetailPrint $1
+    DetailPrint "FindProcess(abcdef.exe): $1"
 SectionEnd
