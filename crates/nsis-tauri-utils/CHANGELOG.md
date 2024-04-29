@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.3.0]
+
+- [`5423579`](https://www.github.com/tauri-apps/nsis-tauri-utils/commit/5423579860016c4f3074831eda03096ee4854e73)([#26](https://www.github.com/tauri-apps/nsis-tauri-utils/pull/26)) Reduce the DLL size by using `no_std` and without static msvcrt.
+
 ## \[0.2.2]
 
 - [`7b6cfcc`](https://www.github.com/tauri-apps/nsis-tauri-utils/commit/7b6cfccd71c04a2ee87d6665b6822ccfe6d389b5)([#24](https://www.github.com/tauri-apps/nsis-tauri-utils/pull/24)) Add `FindProcessCurrentUser` and `KillProcessCurrentUser`.

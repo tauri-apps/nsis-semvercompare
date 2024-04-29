@@ -1,15 +1,15 @@
 [package]
 name = "nsis-tauri-utils"
-version = "0.2.0"
+version = "0.3.0"
 authors = { workspace = true }
 edition = { workspace = true }
 license = { workspace = true }
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = [ "cdylib" ]
 
 [features]
-test = []
+test = [ ]
 
 [dependencies]
 nsis-plugin-api = { workspace = true }
