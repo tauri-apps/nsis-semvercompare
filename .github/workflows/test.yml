@@ -23,14 +23,5 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: install stable
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test --release
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --features test
