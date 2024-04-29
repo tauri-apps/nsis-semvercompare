@@ -8,7 +8,7 @@ edition = "2021"
 license = "MIT or Apache-2.0"
 
 [workspace.dependencies]
-pluginapi = { path = "./crates/pluginapi" }
+nsis-plugin-api = { path = "./crates/nsis-plugin-api" }
 
 [workspace.dependencies.windows-sys]
 version = "0.52.0"
@@ -24,8 +24,8 @@ features = [
 ]
 
 [profile.release]
-codegen-units = 1
-lto = true
-opt-level = "s"
-panic = "abort"
-strip = "symbols"
+panic = "abort"   # Strip expensive panic clean-up logic
+codegen-units = 1 # Compile crates one after another so the compiler can optimize better
+lto = true        # Enables link time optimizations
+opt-level = "s"   # Optimize for binary size
+strip = true      # Remove debug symbols

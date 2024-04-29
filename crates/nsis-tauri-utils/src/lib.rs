@@ -1,3 +1,7 @@
-pub use nsis_download::*;
-pub use nsis_process::*;
-pub use nsis_semvercompare::*;
+#![no_std]
+
+use nsis_plugin_api::*;
+
+nsis_plugin!();
+
+include!(concat!(env!("OUT_DIR"), "/combined_libs.rs"));

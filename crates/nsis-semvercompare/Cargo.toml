@@ -6,9 +6,12 @@ edition = { workspace = true }
 license = { workspace = true }
 
 [lib]
-crate-type = ["rlib", "cdylib"]
+crate-type = ["cdylib"]
+
+[features]
+test = []
 
 [dependencies]
-semver = "1.0"
-pluginapi = { workspace = true }
+semver = { version = "1.0", default-features = false }
+nsis-plugin-api = { workspace = true }
 windows-sys = { workspace = true }

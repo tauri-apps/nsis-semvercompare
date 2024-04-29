@@ -1,8 +1,9 @@
 [package]
-name = "pluginapi"
+name = "nsis-plugin-api"
 version = "0.0.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
 windows-sys = { workspace = true }
+nsis-fn = { path = "../nsis-fn" }

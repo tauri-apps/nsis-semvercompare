@@ -1,33 +1,37 @@
-use std::{cmp::Ordering, str::FromStr};
+#![no_std]
 
-use pluginapi::{exdll_init, popstring, pushint, stack_t, wchar_t};
+use core::cmp::Ordering;
+
+use nsis_plugin_api::*;
 use semver::Version;
-use windows_sys::Win32::Foundation::HWND;
+
+nsis_plugin!();
 
 /// Compare two semantic versions.
 ///
+/// Returns `0` if equal, `1` if `$v1` is newer and `-1` if `$v2` is newer.
+///
 /// # Safety
 ///
-/// This function always expects 2 strings on the stack ($1: version1, $2: version2) and will panic otherwise.
-#[no_mangle]
-pub unsafe extern "C" fn SemverCompare(
-    _hwnd_parent: HWND,
-    string_size: u32,
-    variables: *mut wchar_t,
-    stacktop: *mut *mut stack_t,
-) {
-    exdll_init(string_size, variables, stacktop);
+/// This function always expects 2 strings on the stack ($v1, $v2) and will panic otherwise.
+#[nsis_fn]
+fn SemverCompare() -> Result<(), Error> {
+    let v1 = popstr()?;
+    let v2 = popstr()?;
 
-    let v1 = popstring().unwrap();
-    let v2 = popstring().unwrap();
+    match compare(&v1, &v2) {
+        -1 => push(NEGATIVE_ONE)?,
+        0 => push(ZERO)?,
+        1 => push(ONE)?,
+        _ => unreachable!(),
+    }
 
-    let ret = semver_compare(&v1, &v2);
-    pushint(ret);
+    Ok(())
 }
 
-fn semver_compare(v1: &str, v2: &str) -> i32 {
-    let v1 = Version::from_str(v1);
-    let v2 = Version::from_str(v2);
+fn compare(v1: &str, v2: &str) -> i32 {
+    let v1 = Version::parse(v1);
+    let v2 = Version::parse(v2);
 
     let (v1, v2) = match (v1, v2) {
         (Ok(_), Err(_)) => return 1,
@@ -64,7 +68,7 @@ mod tests {
             ("1.2.1-fffasd.1", "1.2.1-dasdqwe.1", 1),
             ("1.2.1-gasfdlkj.1", "1.2.1-calskjd.1", 1),
         ] {
-            assert_eq!(semver_compare(v1, v2), ret);
+            assert_eq!(compare(v1, v2), ret);
         }
     }
 }

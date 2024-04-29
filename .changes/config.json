@@ -44,16 +44,6 @@
         }
       ]
     },
-    "nsis_download": {
-      "path": "./crates/nsis-download",
-      "manager": "rust",
-      "assets": [
-        {
-          "path": "target/i686-pc-windows-msvc/release/${ pkg.pkg }.dll",
-          "name": "${ pkg.pkg }.dll"
-        }
-      ]
-    },
     "nsis_process": {
       "path": "./crates/nsis-process",
       "manager": "rust",
