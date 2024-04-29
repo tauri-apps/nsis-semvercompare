@@ -14,6 +14,9 @@ impl Parse for NsisFn {
     }
 }
 
+/// Generates a wrapper NSIS compliant dll export that calls `nsis_plugin_api::exdll_init`
+/// automatically. This macro expects the function to return a `Result<(), nsis_plugin_api::Error>`
+/// and will automatically push the error to NSIS stack on failure.
 #[proc_macro_attribute]
 pub fn nsis_fn(_attr: TokenStream, tokens: TokenStream) -> TokenStream {
     let tokens = parse_macro_input!(tokens as NsisFn);
@@ -23,7 +26,7 @@ pub fn nsis_fn(_attr: TokenStream, tokens: TokenStream) -> TokenStream {
     let block = func.block;
     let attrs = func.attrs;
 
-    let new_ident = Ident::new(&format!("__{}", ident.to_string()), Span::call_site());
+    let new_ident = Ident::new(&format!("__{}", ident), Span::call_site());
 
     quote! {
         #[inline(always)]

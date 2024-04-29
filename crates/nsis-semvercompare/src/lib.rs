@@ -20,9 +20,9 @@ fn SemverCompare() -> Result<(), Error> {
     let v2 = popstr()?;
 
     match compare(&v1, &v2) {
-        -1 => push(&NEGATIVE_ONE)?,
-        0 => push(&ZERO)?,
-        1 => push(&ONE)?,
+        -1 => push(NEGATIVE_ONE)?,
+        0 => push(ZERO)?,
+        1 => push(ONE)?,
         _ => unreachable!(),
     }
 

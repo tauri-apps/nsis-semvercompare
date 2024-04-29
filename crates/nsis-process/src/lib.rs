@@ -34,9 +34,9 @@ fn FindProcess() -> Result<(), Error> {
     let name = popstr()?;
 
     if !get_processes(&name).is_empty() {
-        push(&ZERO)
+        push(ZERO)
     } else {
-        push(&ONE)
+        push(ONE)
     }
 }
 
@@ -56,15 +56,15 @@ fn FindProcessCurrentUser() -> Result<(), Error> {
             .into_iter()
             .any(|pid| belongs_to_user(user_sid, pid))
         {
-            push(&ZERO)
+            push(ZERO)
         } else {
-            push(&ONE)
+            push(ONE)
         }
     // Fall back to perMachine checks if we can't get current user id
     } else if processes.is_empty() {
-        push(&ONE)
+        push(ONE)
     } else {
-        push(&ZERO)
+        push(ZERO)
     }
 }
 
@@ -80,9 +80,9 @@ fn KillProcess() -> Result<(), Error> {
     let processes = get_processes(&name);
 
     if !processes.is_empty() && processes.into_iter().map(kill).all(|b| b) {
-        push(&ZERO)
+        push(ZERO)
     } else {
-        push(&ONE)
+        push(ONE)
     }
 }
 
@@ -98,7 +98,7 @@ fn KillProcessCurrentUser() -> Result<(), Error> {
     let processes = get_processes(&name);
 
     if processes.is_empty() {
-        return push(&ONE);
+        return push(ONE);
     }
 
     let success = if let Some(user_sid) = get_sid(GetCurrentProcessId()) {
@@ -112,9 +112,9 @@ fn KillProcessCurrentUser() -> Result<(), Error> {
     };
 
     if success {
-        push(&ZERO)
+        push(ZERO)
     } else {
-        push(&ONE)
+        push(ONE)
     }
 }
 
@@ -196,7 +196,7 @@ fn get_processes(name: &str) -> Vec<u32> {
         if Process32FirstW(handle, &mut process) != 0 {
             while Process32NextW(handle, &mut process) != 0 {
                 if current_pid != process.th32ProcessID
-                    && decode_wide(&process.szExeFile).to_lowercase() == name.to_lowercase()
+                    && decode_utf16_lossy(&process.szExeFile).to_lowercase() == name.to_lowercase()
                 {
                     processes.push(process.th32ProcessID);
                 }

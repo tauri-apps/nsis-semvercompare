@@ -41,6 +41,11 @@ pub static mut G_STRINGSIZE: c_int = 0;
 pub static mut G_VARIABLES: *mut wchar_t = core::ptr::null_mut();
 pub static mut G_STACKTOP: *mut *mut stack_t = core::ptr::null_mut();
 
+/// Initis the global variables used by NSIS functions: [`push`], [`pushstr`], [`pushint`], [`pop`], [`popstr`] and [`popint`]
+///
+/// # Safety
+///
+/// This function mutates static variables and should only be called in a function
 #[inline(always)]
 pub unsafe fn exdll_init(string_size: c_int, variables: *mut wchar_t, stacktop: *mut *mut stack_t) {
     G_STRINGSIZE = string_size;
@@ -48,9 +53,9 @@ pub unsafe fn exdll_init(string_size: c_int, variables: *mut wchar_t, stacktop: 
     G_STACKTOP = stacktop;
 }
 
-pub const ONE: [u16; 2] = [49, 0];
-pub const ZERO: [u16; 2] = [48, 0];
-pub const NEGATIVE_ONE: [u16; 3] = [45, 49, 0];
+pub const ONE: &[u16; 2] = &[49, 0];
+pub const ZERO: &[u16; 2] = &[48, 0];
+pub const NEGATIVE_ONE: &[u16; 3] = &[45, 49, 0];
 
 #[derive(Debug)]
 pub enum Error {
@@ -66,10 +71,15 @@ impl Error {
         }
     }
     pub fn push_err(&self) {
-        let _ = unsafe { pushstr(&self.description()) };
+        let _ = unsafe { pushstr(self.description()) };
     }
 }
 
+/// Pushes some bytes onto the NSIS stack.
+///
+/// # Safety
+///
+/// This function reads static variables and should only be called after [`exdll_init`] is called.
 pub unsafe fn push(bytes: &[u16]) -> Result<(), Error> {
     if G_STACKTOP.is_null() {
         return Err(Error::StackIsNull);
@@ -84,16 +94,31 @@ pub unsafe fn push(bytes: &[u16]) -> Result<(), Error> {
     Ok(())
 }
 
+/// Pushes a string onto the NSIS stack.
+///
+/// # Safety
+///
+/// This function reads static variables and should only be called after [`exdll_init`] is called.
 pub unsafe fn pushstr(str: &str) -> Result<(), Error> {
-    let bytes = encode_wide(str);
+    let bytes = encode_utf16(str);
     push(&bytes)
 }
 
+/// Pushes an integer onto the NSIS stack.
+///
+/// # Safety
+///
+/// This function reads static variables and should only be called after [`exdll_init`] is called.
 pub unsafe fn pushint(int: i32) -> Result<(), Error> {
     let str = int.to_string();
     pushstr(&str)
 }
 
+/// Pops bytes from NSIS stack.
+///
+/// # Safety
+///
+/// This function reads static variables and should only be called after [`exdll_init`] is called.
 pub unsafe fn pop() -> Result<Vec<u16>, Error> {
     if G_STACKTOP.is_null() || (*G_STACKTOP).is_null() {
         return Err(Error::StackIsNull);
@@ -109,28 +134,38 @@ pub unsafe fn pop() -> Result<Vec<u16>, Error> {
     Ok(out)
 }
 
+/// Pops a string from NSIS stack.
+///
+/// # Safety
+///
+/// This function reads static variables and should only be called after [`exdll_init`] is called.
 pub unsafe fn popstr() -> Result<String, Error> {
     let bytes = pop()?;
-    Ok(decode_wide(&bytes))
+    Ok(decode_utf16_lossy(&bytes))
 }
 
+/// Pops an integer from NSIS stack.
+///
+/// # Safety
+///
+/// This function reads static variables and should only be called after [`exdll_init`] is called.
 pub unsafe fn popint() -> Result<i32, Error> {
     let str = popstr()?;
     str.parse().map_err(|_| Error::ParseIntError)
 }
 
-pub fn encode_wide(str: &str) -> Vec<u16> {
+pub fn encode_utf16(str: &str) -> Vec<u16> {
     str.encode_utf16()
         .chain(iter::once(0))
         .collect::<Vec<u16>>()
 }
 
-pub fn decode_wide(bytes: &[u16]) -> String {
+pub fn decode_utf16_lossy(bytes: &[u16]) -> String {
     let bytes = bytes
         .iter()
         .position(|c| *c == 0)
         .map(|nul| &bytes[..nul])
-        .unwrap_or(&bytes);
+        .unwrap_or(bytes);
     String::from_utf16_lossy(bytes)
 }
 
@@ -183,21 +218,21 @@ macro_rules! nsis_plugin {
         }
 
         #[no_mangle]
-        pub unsafe extern "C" fn memcpy(dest: *mut u8, src: *const u8, n: usize) -> *mut u8 {
+        pub unsafe extern "C" fn memcpy(dest: *mut u8, src: *const u8, n: isize) -> *mut u8 {
             let mut i = 0;
             while i < n {
-                *dest.offset(i as isize) = *src.offset(i as isize);
+                *dest.offset(i) = *src.offset(i);
                 i += 1;
             }
             return dest;
         }
 
         #[no_mangle]
-        pub unsafe extern "C" fn memcmp(s1: *const u8, s2: *const u8, n: usize) -> i32 {
+        pub unsafe extern "C" fn memcmp(s1: *const u8, s2: *const u8, n: isize) -> i32 {
             let mut i = 0;
             while i < n {
-                let a = *s1.offset(i as isize);
-                let b = *s2.offset(i as isize);
+                let a = *s1.offset(i);
+                let b = *s2.offset(i);
                 if a != b {
                     return a as i32 - b as i32;
                 }
@@ -207,10 +242,10 @@ macro_rules! nsis_plugin {
         }
 
         #[no_mangle]
-        pub unsafe extern "C" fn memset(s: *mut u8, c: i32, n: usize) -> *mut u8 {
+        pub unsafe extern "C" fn memset(s: *mut u8, c: i32, n: isize) -> *mut u8 {
             let mut i = 0;
             while i < n {
-                *s.offset(i as isize) = c as u8;
+                *s.offset(i) = c as u8;
                 i += 1;
             }
             return s;

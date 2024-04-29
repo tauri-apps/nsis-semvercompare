@@ -18,33 +18,17 @@ jobs:
   clippy:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: install stable
-        uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
           components: clippy
+      - run: cargo clippy --release --all-targets --all-features -- -D warnings
 
-      - uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --all-targets --all-features -- -D warnings
-
-  fmt:
+  rustfmt:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: install stable
-        uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
           components: rustfmt
-
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+      - run: cargo fmt --all -- --check
