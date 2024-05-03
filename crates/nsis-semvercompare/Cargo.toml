@@ -12,6 +12,6 @@ crate-type = [ "cdylib" ]
 test = [ ]
 
 [dependencies]
-semver = { version = "1.0", default-features = false }
+semver = { version = "1.0.22", default-features = false }
 nsis-plugin-api = { workspace = true }
 windows-sys = { workspace = true }
