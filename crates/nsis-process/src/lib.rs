@@ -2,13 +2,12 @@
 
 extern crate alloc;
 
-use alloc::vec;
-use alloc::vec::Vec;
-use core::{ffi::c_void, mem, ptr};
+use alloc::{borrow::ToOwned, vec, vec::Vec};
+use core::{ffi::c_void, mem, ops::Deref, ops::DerefMut, ptr};
 
 use nsis_plugin_api::*;
 use windows_sys::Win32::{
-    Foundation::{CloseHandle, HANDLE},
+    Foundation::{CloseHandle, GetLastError, ERROR_INSUFFICIENT_BUFFER, FALSE, HANDLE, TRUE},
     Security::{EqualSid, GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER},
     System::{
         Diagnostics::ToolHelp::{
@@ -16,10 +15,15 @@ use windows_sys::Win32::{
             TH32CS_SNAPPROCESS,
         },
         Threading::{
-            GetCurrentProcessId, OpenProcess, OpenProcessToken, TerminateProcess,
-            PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE,
+            CreateProcessW, GetCurrentProcessId, InitializeProcThreadAttributeList, OpenProcess,
+            OpenProcessToken, TerminateProcess, UpdateProcThreadAttribute,
+            CREATE_NEW_PROCESS_GROUP, CREATE_UNICODE_ENVIRONMENT, EXTENDED_STARTUPINFO_PRESENT,
+            LPPROC_THREAD_ATTRIBUTE_LIST, PROCESS_CREATE_PROCESS, PROCESS_INFORMATION,
+            PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE, PROC_THREAD_ATTRIBUTE_PARENT_PROCESS,
+            STARTUPINFOEXW, STARTUPINFOW,
         },
     },
+    UI::WindowsAndMessaging::{GetShellWindow, GetWindowThreadProcessId},
 };
 
 nsis_plugin!();
@@ -118,67 +122,77 @@ fn KillProcessCurrentUser() -> Result<(), Error> {
     }
 }
 
+/// Run command as unelevated user
+///
+/// Needs 2 strings on the stack
+/// $1: command
+/// $2: arguments
+#[nsis_fn]
+fn RunAsUser() -> Result<(), Error> {
+    let command = popstr()?;
+    let arguments = popstr()?;
+    if run_as_user(&command, &arguments) {
+        push(ZERO)
+    } else {
+        push(ONE)
+    }
+}
+
 unsafe fn belongs_to_user(user_sid: *mut c_void, pid: u32) -> bool {
     let p_sid = get_sid(pid);
     // Trying to get the sid of a process of another user will give us an "Access Denied" error.
     // TODO: Consider checking for HRESULT(0x80070005) if we want to return true for other errors to try and kill those processes later.
     p_sid
-        .map(|p_sid| EqualSid(user_sid, p_sid) != 0)
+        .map(|p_sid| EqualSid(user_sid, p_sid) != FALSE)
         .unwrap_or_default()
 }
 
 fn kill(pid: u32) -> bool {
     unsafe {
-        let handle = OpenProcess(PROCESS_TERMINATE, 0, pid);
-        let success = TerminateProcess(handle, 1);
-        CloseHandle(handle);
-        success != 0
+        let handle = OwnedHandle::new(OpenProcess(PROCESS_TERMINATE, 0, pid));
+        TerminateProcess(*handle, 1) == TRUE
     }
 }
 
 // Get the SID of a process. Returns None on error.
 unsafe fn get_sid(pid: u32) -> Option<*mut c_void> {
-    let handle = OpenProcess(PROCESS_QUERY_INFORMATION, 0, pid);
-
-    let mut sid = None;
-    let mut token_handle = HANDLE::default();
-
-    if OpenProcessToken(handle, TOKEN_QUERY, &mut token_handle) != 0 {
-        let mut info_length = 0;
-
-        GetTokenInformation(
-            token_handle,
-            TokenUser,
-            ptr::null_mut(),
-            0,
-            &mut info_length as *mut u32,
-        );
-
-        // GetTokenInformation always returns 0 for the first call so we check if it still gave us the buffer length
-        if info_length == 0 {
-            return sid;
-        }
-
-        let info = vec![0u8; info_length as usize].as_mut_ptr() as *mut TOKEN_USER;
-
-        if GetTokenInformation(
-            token_handle,
-            TokenUser,
-            info as *mut c_void,
-            info_length,
-            &mut info_length,
-        ) == 0
-        {
-            return sid;
-        }
-
-        sid = Some((*info).User.Sid)
+    let handle = OwnedHandle::new(OpenProcess(PROCESS_QUERY_INFORMATION, 0, pid));
+    if handle.is_invalid() {
+        return None;
     }
 
-    CloseHandle(token_handle);
-    CloseHandle(handle);
+    let mut token_handle = OwnedHandle::new(HANDLE::default());
+    if OpenProcessToken(*handle, TOKEN_QUERY, &mut *token_handle) == FALSE {
+        return None;
+    }
 
-    sid
+    let mut info_length = 0;
+    GetTokenInformation(
+        *token_handle,
+        TokenUser,
+        ptr::null_mut(),
+        0,
+        &mut info_length,
+    );
+    // GetTokenInformation always returns 0 for the first call so we check if it still gave us the buffer length
+    if info_length == 0 {
+        return None;
+    }
+
+    let mut buffer = vec![0u8; info_length as usize];
+    let info = buffer.as_mut_ptr() as *mut TOKEN_USER;
+    if GetTokenInformation(
+        *token_handle,
+        TokenUser,
+        info as *mut c_void,
+        info_length,
+        &mut info_length,
+    ) == FALSE
+    {
+        None
+    } else {
+        Some((*info).User.Sid)
+    }
 }
 
 fn get_processes(name: &str) -> Vec<u32> {
@@ -186,15 +200,15 @@ fn get_processes(name: &str) -> Vec<u32> {
     let mut processes = Vec::new();
 
     unsafe {
-        let handle = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        let handle = OwnedHandle::new(CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0));
 
         let mut process = PROCESSENTRY32W {
             dwSize: mem::size_of::<PROCESSENTRY32W>() as u32,
             ..mem::zeroed()
         };
 
-        if Process32FirstW(handle, &mut process) != 0 {
-            while Process32NextW(handle, &mut process) != 0 {
+        if Process32FirstW(*handle, &mut process) == TRUE {
+            while Process32NextW(*handle, &mut process) == TRUE {
                 if current_pid != process.th32ProcessID
                     && decode_utf16_lossy(&process.szExeFile).to_lowercase() == name.to_lowercase()
                 {
@@ -202,11 +216,123 @@ fn get_processes(name: &str) -> Vec<u32> {
                 }
             }
         }
-
-        CloseHandle(handle);
     }
 
     processes
+}
+
+/// Return true if success
+///
+/// Ported from https://devblogs.microsoft.com/oldnewthing/20190425-00/?p=102443
+unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
+    let hwnd = GetShellWindow();
+    if hwnd == 0 {
+        return false;
+    }
+
+    let mut proccess_id = 0;
+    if GetWindowThreadProcessId(hwnd, &mut proccess_id) == FALSE as u32 {
+        return false;
+    }
+
+    let process = OwnedHandle::new(OpenProcess(PROCESS_CREATE_PROCESS, FALSE, proccess_id));
+    if process.is_invalid() {
+        return false;
+    }
+
+    let mut size = 0;
+    if !(InitializeProcThreadAttributeList(ptr::null_mut(), 1, 0, &mut size) == FALSE
+        && GetLastError() == ERROR_INSUFFICIENT_BUFFER)
+    {
+        return false;
+    }
+
+    let mut buffer = vec![0u8; size];
+    let attribute_list = buffer.as_mut_ptr() as LPPROC_THREAD_ATTRIBUTE_LIST;
+    if InitializeProcThreadAttributeList(attribute_list, 1, 0, &mut size) == FALSE {
+        return false;
+    }
+
+    if UpdateProcThreadAttribute(
+        attribute_list,
+        0,
+        PROC_THREAD_ATTRIBUTE_PARENT_PROCESS as _,
+        &*process as *const _ as _,
+        mem::size_of::<HANDLE>(),
+        ptr::null_mut(),
+        ptr::null(),
+    ) == FALSE
+    {
+        return false;
+    }
+
+    let startup_info = STARTUPINFOEXW {
+        StartupInfo: STARTUPINFOW {
+            cb: mem::size_of::<STARTUPINFOEXW>() as _,
+            ..mem::zeroed()
+        },
+        lpAttributeList: attribute_list,
+    };
+    let mut process_info: PROCESS_INFORMATION = mem::zeroed();
+    let mut command_line = command.to_owned();
+    if !arguments.is_empty() {
+        command_line.push(' ');
+        command_line.push_str(arguments);
+    }
+
+    if CreateProcessW(
+        encode_utf16(command).as_ptr(),
+        encode_utf16(&command_line).as_mut_ptr(),
+        ptr::null(),
+        ptr::null(),
+        FALSE,
+        CREATE_UNICODE_ENVIRONMENT | CREATE_NEW_PROCESS_GROUP | EXTENDED_STARTUPINFO_PRESENT,
+        ptr::null(),
+        ptr::null(),
+        &startup_info as *const _ as _,
+        &mut process_info,
+    ) == FALSE
+    {
+        false
+    } else {
+        CloseHandle(process_info.hProcess);
+        CloseHandle(process_info.hThread);
+        true
+    }
+}
+
+struct OwnedHandle(HANDLE);
+
+impl OwnedHandle {
+    fn new(handle: HANDLE) -> Self {
+        Self(handle)
+    }
+
+    fn is_invalid(&self) -> bool {
+        self.0 == 0
+    }
+}
+
+impl Drop for OwnedHandle {
+    fn drop(&mut self) {
+        if !self.is_invalid() {
+            unsafe { CloseHandle(self.0) };
+        }
+    }
+}
+
+impl Deref for OwnedHandle {
+    type Target = HANDLE;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for OwnedHandle {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
 }
 
 #[cfg(test)]
@@ -225,5 +351,10 @@ mod tests {
         // TODO: maybe find some way to spawn a dummy process we can kill here?
         // This will return true on empty iterators so it's basically no-op right now
         assert!(processes.into_iter().map(kill).all(|b| b));
+    }
+
+    #[test]
+    fn spawn_cmd() {
+        unsafe { run_as_user("cmd", "/c timeout 3") };
     }
 }

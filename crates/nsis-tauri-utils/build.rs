@@ -1,3 +1,5 @@
+use std::io::Write;
+
 fn main() {
     combine_plugins_and_write_to_out_dir();
     if std::env::var("CARGO_FEATURE_TEST").as_deref() != Ok("1") {
@@ -13,14 +15,7 @@ fn main() {
 fn combine_plugins_and_write_to_out_dir() {
     let out_dir = std::env::var("OUT_DIR").unwrap();
     let path = format!("{out_dir}/combined_libs.rs");
-
-    let mut file = std::fs::File::options()
-        .truncate(true)
-        .write(true)
-        .create(true)
-        .open(path)
-        .unwrap();
-
+    let mut file = std::fs::File::create(path).unwrap();
     for plugin in [
         include_str!("../nsis-semvercompare/src/lib.rs"),
         include_str!("../nsis-process/src/lib.rs"),
@@ -39,6 +34,6 @@ fn combine_plugins_and_write_to_out_dir() {
 
         // skip last line which should be #[cfg(test)]
         let content = lines[..lines.len() - 1].join("\n");
-        std::io::Write::write_all(&mut file, content.as_bytes()).unwrap();
+        file.write_all(content.as_bytes()).unwrap();
     }
 }
