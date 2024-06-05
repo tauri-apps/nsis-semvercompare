@@ -225,13 +225,13 @@ fn get_processes(name: &str) -> Vec<u32> {
 ///
 /// Ported from https://devblogs.microsoft.com/oldnewthing/20190425-00/?p=102443
 unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
-    let hwnd = OwnedHandle::new(GetShellWindow());
-    if hwnd.is_invalid() {
+    let hwnd = GetShellWindow();
+    if hwnd == 0 {
         return false;
     }
 
     let mut proccess_id = 0;
-    if GetWindowThreadProcessId(*hwnd, &mut proccess_id) == 0 {
+    if GetWindowThreadProcessId(hwnd, &mut proccess_id) == 0 {
         return false;
     }
 
