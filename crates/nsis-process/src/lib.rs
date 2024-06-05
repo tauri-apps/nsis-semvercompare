@@ -277,8 +277,10 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
     };
     let process_info = PROCESS_INFORMATION { ..mem::zeroed() };
     let mut command_line = command.to_owned();
-    command_line.push(' ');
-    command_line.push_str(arguments);
+    if !arguments.is_empty() {
+        command_line.push(' ');
+        command_line.push_str(arguments);
+    }
     if CreateProcessW(
         encode_utf16(command).as_ptr(),
         encode_utf16(&command_line).as_mut_ptr(),
