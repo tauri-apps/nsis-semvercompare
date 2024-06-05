@@ -234,7 +234,7 @@ fn get_processes(name: &str) -> Vec<u32> {
 /// Ported from https://devblogs.microsoft.com/oldnewthing/20190425-00/?p=102443
 unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
     let hwnd = OwnedHandle::new(GetShellWindow());
-    if *hwnd == 0 {
+    if hwnd.is_invalid() {
         return false;
     }
     let mut proccess_id = 0;
@@ -242,7 +242,7 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
         return false;
     }
     let handle = OwnedHandle::new(OpenProcess(PROCESS_CREATE_PROCESS, FALSE, proccess_id));
-    if *handle == 0 {
+    if handle.is_invalid() {
         return false;
     }
     let mut size = 0;
@@ -303,6 +303,10 @@ struct OwnedHandle(HANDLE);
 impl OwnedHandle {
     fn new(handle: HANDLE) -> Self {
         Self(handle)
+    }
+
+    fn is_invalid(&self) -> bool {
+        self.0 == 0
     }
 }
 
