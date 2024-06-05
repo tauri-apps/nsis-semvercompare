@@ -20,8 +20,9 @@ use windows_sys::Win32::{
             CreateProcessW, GetCurrentProcessId, InitializeProcThreadAttributeList, OpenProcess,
             OpenProcessToken, TerminateProcess, UpdateProcThreadAttribute,
             CREATE_NEW_PROCESS_GROUP, CREATE_UNICODE_ENVIRONMENT, EXTENDED_STARTUPINFO_PRESENT,
-            PROCESS_CREATE_PROCESS, PROCESS_INFORMATION, PROCESS_QUERY_INFORMATION,
-            PROCESS_TERMINATE, PROC_THREAD_ATTRIBUTE_PARENT_PROCESS, STARTUPINFOEXW, STARTUPINFOW,
+            LPPROC_THREAD_ATTRIBUTE_LIST, PROCESS_CREATE_PROCESS, PROCESS_INFORMATION,
+            PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE, PROC_THREAD_ATTRIBUTE_PARENT_PROCESS,
+            STARTUPINFOEXW, STARTUPINFOW,
         },
     },
     UI::WindowsAndMessaging::{GetShellWindow, GetWindowThreadProcessId},
@@ -233,8 +234,8 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
     if GetWindowThreadProcessId(*hwnd, &mut proccess_id) == 0 {
         return false;
     }
-    let handle = OwnedHandle::new(OpenProcess(PROCESS_CREATE_PROCESS, FALSE, proccess_id));
-    if handle.is_invalid() {
+    let process = OwnedHandle::new(OpenProcess(PROCESS_CREATE_PROCESS, FALSE, proccess_id));
+    if process.is_invalid() {
         return false;
     }
     let mut size = 0;
@@ -243,16 +244,15 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
     {
         return false;
     }
-    let mut attribute_list = vec![0u8; size];
-    if InitializeProcThreadAttributeList(attribute_list.as_mut_ptr() as _, 1, 0, &mut size) == FALSE
-    {
+    let attribute_list = vec![0u8; size].as_mut_ptr() as LPPROC_THREAD_ATTRIBUTE_LIST;
+    if InitializeProcThreadAttributeList(attribute_list, 1, 0, &mut size) == FALSE {
         return false;
     }
     if UpdateProcThreadAttribute(
-        attribute_list.as_mut_ptr() as _,
+        attribute_list,
         0,
         PROC_THREAD_ATTRIBUTE_PARENT_PROCESS as _,
-        &*handle as *const _ as _,
+        &*process as *const _ as _,
         mem::size_of::<HANDLE>(),
         ptr::null_mut(),
         ptr::null(),
@@ -265,7 +265,7 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
             cb: mem::size_of::<STARTUPINFOEXW>() as _,
             ..mem::zeroed()
         },
-        lpAttributeList: attribute_list.as_mut_ptr() as _,
+        lpAttributeList: attribute_list,
     };
     let mut process_info = PROCESS_INFORMATION { ..mem::zeroed() };
     let mut command_line = command.to_owned();
