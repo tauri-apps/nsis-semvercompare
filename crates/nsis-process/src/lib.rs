@@ -4,6 +4,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use alloc::{borrow::ToOwned, vec};
+use core::ops::DerefMut;
 use core::{ffi::c_void, mem, ops::Deref, ptr};
 
 use nsis_plugin_api::*;
@@ -149,56 +150,49 @@ unsafe fn belongs_to_user(user_sid: *mut c_void, pid: u32) -> bool {
 
 fn kill(pid: u32) -> bool {
     unsafe {
-        let handle = OpenProcess(PROCESS_TERMINATE, 0, pid);
-        let success = TerminateProcess(handle, 1);
-        CloseHandle(handle);
+        let handle = OwnedHandle::new(OpenProcess(PROCESS_TERMINATE, 0, pid));
+        let success = TerminateProcess(*handle, 1);
         success != 0
     }
 }
 
 // Get the SID of a process. Returns None on error.
 unsafe fn get_sid(pid: u32) -> Option<*mut c_void> {
-    let handle = OpenProcess(PROCESS_QUERY_INFORMATION, 0, pid);
+    let handle = OwnedHandle::new(OpenProcess(PROCESS_QUERY_INFORMATION, 0, pid));
+    let mut token_handle = OwnedHandle::new(HANDLE::default());
 
-    let mut sid = None;
-    let mut token_handle = HANDLE::default();
+    if OpenProcessToken(*handle, TOKEN_QUERY, &mut *token_handle) == 0 {
+        return None;
+    }
+    let mut info_length = 0;
 
-    if OpenProcessToken(handle, TOKEN_QUERY, &mut token_handle) != 0 {
-        let mut info_length = 0;
+    GetTokenInformation(
+        *token_handle,
+        TokenUser,
+        ptr::null_mut(),
+        0,
+        &mut info_length as *mut u32,
+    );
 
-        GetTokenInformation(
-            token_handle,
-            TokenUser,
-            ptr::null_mut(),
-            0,
-            &mut info_length as *mut u32,
-        );
-
-        // GetTokenInformation always returns 0 for the first call so we check if it still gave us the buffer length
-        if info_length == 0 {
-            return sid;
-        }
-
-        let info = vec![0u8; info_length as usize].as_mut_ptr() as *mut TOKEN_USER;
-
-        if GetTokenInformation(
-            token_handle,
-            TokenUser,
-            info as *mut c_void,
-            info_length,
-            &mut info_length,
-        ) == 0
-        {
-            return sid;
-        }
-
-        sid = Some((*info).User.Sid)
+    // GetTokenInformation always returns 0 for the first call so we check if it still gave us the buffer length
+    if info_length == 0 {
+        return None;
     }
 
-    CloseHandle(token_handle);
-    CloseHandle(handle);
+    let info = vec![0u8; info_length as usize].as_mut_ptr() as *mut TOKEN_USER;
 
-    sid
+    if GetTokenInformation(
+        *token_handle,
+        TokenUser,
+        info as *mut c_void,
+        info_length,
+        &mut info_length,
+    ) == 0
+    {
+        return None;
+    }
+
+    Some((*info).User.Sid)
 }
 
 fn get_processes(name: &str) -> Vec<u32> {
@@ -323,6 +317,12 @@ impl Deref for OwnedHandle {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl DerefMut for OwnedHandle {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
