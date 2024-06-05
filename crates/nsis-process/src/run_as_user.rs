@@ -83,10 +83,10 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
     };
     let process_info = PROCESS_INFORMATION { ..mem::zeroed() };
     let mut command_line = command.to_owned();
-    command_line.push_str(" ");
-    command_line.push_str(&arguments);
+    command_line.push(' ');
+    command_line.push_str(arguments);
     if CreateProcessW(
-        encode_utf16(&command).as_ptr(),
+        encode_utf16(command).as_ptr(),
         encode_utf16(&command_line).as_mut_ptr(),
         ptr::null(),
         ptr::null(),
@@ -131,10 +131,10 @@ struct OwnedLocalMemory(HLOCAL);
 impl OwnedLocalMemory {
     fn new(size: usize) -> Option<Self> {
         let hlocal = unsafe { LocalAlloc(LMEM_FIXED, size) };
-        if hlocal != ptr::null_mut() {
-            Some(Self(hlocal))
-        } else {
+        if hlocal.is_null() {
             None
+        } else {
+            Some(Self(hlocal))
         }
     }
 }
