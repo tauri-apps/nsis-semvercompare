@@ -1,5 +1,6 @@
 ---
 "nsis_process": "minor"
+"nsis_tauri_utils: "minor"
 ---
 
-Add a new function `RunAsUser` to run command as unelevated user
+Add `RunAsUser` to run command as unelevated user

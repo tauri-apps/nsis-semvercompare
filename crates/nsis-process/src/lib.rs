@@ -150,8 +150,7 @@ unsafe fn belongs_to_user(user_sid: *mut c_void, pid: u32) -> bool {
 fn kill(pid: u32) -> bool {
     unsafe {
         let handle = OwnedHandle::new(OpenProcess(PROCESS_TERMINATE, 0, pid));
-        let success = TerminateProcess(*handle, 1);
-        success != FALSE
+        TerminateProcess(*handle, 1) == TRUE
     }
 }
 
@@ -161,6 +160,7 @@ unsafe fn get_sid(pid: u32) -> Option<*mut c_void> {
     if handle.is_invalid() {
         return None;
     }
+
     let mut token_handle = OwnedHandle::new(HANDLE::default());
     if OpenProcessToken(*handle, TOKEN_QUERY, &mut *token_handle) == FALSE {
         return None;
@@ -229,25 +229,30 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
     if hwnd.is_invalid() {
         return false;
     }
+
     let mut proccess_id = 0;
     if GetWindowThreadProcessId(*hwnd, &mut proccess_id) == 0 {
         return false;
     }
+
     let process = OwnedHandle::new(OpenProcess(PROCESS_CREATE_PROCESS, FALSE, proccess_id));
     if process.is_invalid() {
         return false;
     }
+
     let mut size = 0;
     if !(InitializeProcThreadAttributeList(ptr::null_mut(), 1, 0, &mut size) == FALSE
         && GetLastError() == ERROR_INSUFFICIENT_BUFFER)
     {
         return false;
     }
+
     let mut buffer = vec![0u8; size];
     let attribute_list = buffer.as_mut_ptr() as LPPROC_THREAD_ATTRIBUTE_LIST;
     if InitializeProcThreadAttributeList(attribute_list, 1, 0, &mut size) == FALSE {
         return false;
     }
+
     if UpdateProcThreadAttribute(
         attribute_list,
         0,
@@ -260,6 +265,7 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
     {
         return false;
     }
+
     let startup_info = STARTUPINFOEXW {
         StartupInfo: STARTUPINFOW {
             cb: mem::size_of::<STARTUPINFOEXW>() as _,
@@ -267,12 +273,13 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
         },
         lpAttributeList: attribute_list,
     };
-    let mut process_info = PROCESS_INFORMATION { ..mem::zeroed() };
+    let mut process_info: PROCESS_INFORMATION = mem::zeroed();
     let mut command_line = command.to_owned();
     if !arguments.is_empty() {
         command_line.push(' ');
         command_line.push_str(arguments);
     }
+
     if CreateProcessW(
         encode_utf16(command).as_ptr(),
         encode_utf16(&command_line).as_mut_ptr(),
