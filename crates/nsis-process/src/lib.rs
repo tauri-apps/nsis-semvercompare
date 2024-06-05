@@ -251,12 +251,13 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
     {
         return false;
     }
-    let mut attribute_list = Vec::with_capacity(size);
-    if InitializeProcThreadAttributeList(attribute_list.as_mut_ptr(), 1, 0, &mut size) == FALSE {
+    let mut attribute_list: Vec<u8> = Vec::with_capacity(size);
+    if InitializeProcThreadAttributeList(attribute_list.as_mut_ptr() as _, 1, 0, &mut size) == FALSE
+    {
         return false;
     }
     if UpdateProcThreadAttribute(
-        attribute_list.as_mut_ptr(),
+        attribute_list.as_mut_ptr() as _,
         0,
         PROC_THREAD_ATTRIBUTE_PARENT_PROCESS as _,
         &*handle as *const _ as _,
@@ -272,7 +273,7 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
             cb: mem::size_of::<STARTUPINFOEXW>() as _,
             ..mem::zeroed()
         },
-        lpAttributeList: attribute_list.as_mut_ptr(),
+        lpAttributeList: attribute_list.as_mut_ptr() as _,
     };
     let process_info = PROCESS_INFORMATION { ..mem::zeroed() };
     let mut command_line = command.to_owned();
