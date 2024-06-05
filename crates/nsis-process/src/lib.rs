@@ -251,7 +251,7 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
     {
         return false;
     }
-    let mut attribute_list: Vec<u8> = Vec::with_capacity(size);
+    let mut attribute_list = vec![0u8; size];
     if InitializeProcThreadAttributeList(attribute_list.as_mut_ptr() as _, 1, 0, &mut size) == FALSE
     {
         return false;
