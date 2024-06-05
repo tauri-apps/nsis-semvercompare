@@ -22,4 +22,7 @@ Section
     nsis_process::FindProcess "abcdef.exe"
     Pop $1
     DetailPrint "FindProcess(abcdef.exe): $1"
+    nsis_process::RunAsUser "C:\\Windows\\System32\\cmd.exe" "/c pause"
+    Pop $1
+    DetailPrint "RunAsUser(cmd, /c pause): $1"
 SectionEnd
