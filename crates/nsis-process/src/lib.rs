@@ -267,7 +267,7 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
         },
         lpAttributeList: attribute_list.as_mut_ptr() as _,
     };
-    let process_info = PROCESS_INFORMATION { ..mem::zeroed() };
+    let mut process_info = PROCESS_INFORMATION { ..mem::zeroed() };
     let mut command_line = command.to_owned();
     if !arguments.is_empty() {
         command_line.push(' ');
@@ -283,7 +283,7 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
         ptr::null(),
         ptr::null(),
         &startup_info as *const _ as _,
-        &process_info as *const _ as _,
+        &mut process_info,
     ) == FALSE
     {
         false
