@@ -231,7 +231,7 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
     }
 
     let mut proccess_id = 0;
-    if GetWindowThreadProcessId(hwnd, &mut proccess_id) == 0 {
+    if GetWindowThreadProcessId(hwnd, &mut proccess_id) == FALSE {
         return false;
     }
 
