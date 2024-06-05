@@ -158,28 +158,29 @@ fn kill(pid: u32) -> bool {
 // Get the SID of a process. Returns None on error.
 unsafe fn get_sid(pid: u32) -> Option<*mut c_void> {
     let handle = OwnedHandle::new(OpenProcess(PROCESS_QUERY_INFORMATION, 0, pid));
+    if handle.is_invalid() {
+        return None;
+    }
     let mut token_handle = OwnedHandle::new(HANDLE::default());
-
     if OpenProcessToken(*handle, TOKEN_QUERY, &mut *token_handle) == FALSE {
         return None;
     }
-    let mut info_length = 0;
 
+    let mut info_length = 0;
     GetTokenInformation(
         *token_handle,
         TokenUser,
         ptr::null_mut(),
         0,
-        &mut info_length as *mut u32,
+        &mut info_length,
     );
-
     // GetTokenInformation always returns 0 for the first call so we check if it still gave us the buffer length
     if info_length == 0 {
         return None;
     }
 
-    let info = vec![0u8; info_length as usize].as_mut_ptr() as *mut TOKEN_USER;
-
+    let mut buffer = vec![0u8; info_length as usize];
+    let info = buffer.as_mut_ptr() as *mut TOKEN_USER;
     if GetTokenInformation(
         *token_handle,
         TokenUser,
@@ -188,10 +189,10 @@ unsafe fn get_sid(pid: u32) -> Option<*mut c_void> {
         &mut info_length,
     ) == FALSE
     {
-        return None;
+        None
+    } else {
+        Some((*info).User.Sid)
     }
-
-    Some((*info).User.Sid)
 }
 
 fn get_processes(name: &str) -> Vec<u32> {
@@ -242,7 +243,8 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
     {
         return false;
     }
-    let attribute_list = vec![0u8; size].as_mut_ptr() as LPPROC_THREAD_ATTRIBUTE_LIST;
+    let mut buffer = vec![0u8; size];
+    let attribute_list = buffer.as_mut_ptr() as LPPROC_THREAD_ATTRIBUTE_LIST;
     if InitializeProcThreadAttributeList(attribute_list, 1, 0, &mut size) == FALSE {
         return false;
     }
