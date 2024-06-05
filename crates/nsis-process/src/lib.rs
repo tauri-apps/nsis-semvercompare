@@ -290,12 +290,14 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
         ptr::null(),
         &startup_info as *const _ as _,
         &process_info as *const _ as _,
-    ) != 0
+    ) == 0
     {
+        false
+    } else {
         CloseHandle(process_info.hProcess);
         CloseHandle(process_info.hThread);
+        true
     }
-    true
 }
 
 struct OwnedHandle(HANDLE);
