@@ -1,5 +1,7 @@
 #![no_std]
 
+mod run_as_user;
+
 extern crate alloc;
 
 use alloc::vec;
