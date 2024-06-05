@@ -238,7 +238,7 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
         return false;
     }
     let mut proccess_id = 0;
-    if GetWindowThreadProcessId(*hwnd, &mut proccess_id) != 0 {
+    if GetWindowThreadProcessId(*hwnd, &mut proccess_id) == 0 {
         return false;
     }
     let handle = OwnedHandle::new(OpenProcess(PROCESS_CREATE_PROCESS, FALSE, proccess_id));
