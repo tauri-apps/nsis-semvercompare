@@ -152,7 +152,7 @@ fn kill(pid: u32) -> bool {
     unsafe {
         let handle = OwnedHandle::new(OpenProcess(PROCESS_TERMINATE, 0, pid));
         let success = TerminateProcess(*handle, 1);
-        success != 0
+        success != FALSE
     }
 }
 
@@ -161,7 +161,7 @@ unsafe fn get_sid(pid: u32) -> Option<*mut c_void> {
     let handle = OwnedHandle::new(OpenProcess(PROCESS_QUERY_INFORMATION, 0, pid));
     let mut token_handle = OwnedHandle::new(HANDLE::default());
 
-    if OpenProcessToken(*handle, TOKEN_QUERY, &mut *token_handle) == 0 {
+    if OpenProcessToken(*handle, TOKEN_QUERY, &mut *token_handle) == FALSE {
         return None;
     }
     let mut info_length = 0;
@@ -187,7 +187,7 @@ unsafe fn get_sid(pid: u32) -> Option<*mut c_void> {
         info as *mut c_void,
         info_length,
         &mut info_length,
-    ) == 0
+    ) == FALSE
     {
         return None;
     }
@@ -284,7 +284,7 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
         ptr::null(),
         &startup_info as *const _ as _,
         &process_info as *const _ as _,
-    ) == 0
+    ) == FALSE
     {
         false
     } else {
