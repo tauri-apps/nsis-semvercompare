@@ -2,14 +2,12 @@
 
 extern crate alloc;
 
-use alloc::vec::Vec;
-use alloc::{borrow::ToOwned, vec};
-use core::ops::DerefMut;
-use core::{ffi::c_void, mem, ops::Deref, ptr};
+use alloc::{borrow::ToOwned, vec, vec::Vec};
+use core::{ffi::c_void, mem, ops::Deref, ops::DerefMut, ptr};
 
 use nsis_plugin_api::*;
 use windows_sys::Win32::{
-    Foundation::{CloseHandle, GetLastError, ERROR_INSUFFICIENT_BUFFER, FALSE, HANDLE},
+    Foundation::{CloseHandle, GetLastError, ERROR_INSUFFICIENT_BUFFER, FALSE, HANDLE, TRUE},
     Security::{EqualSid, GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER},
     System::{
         Diagnostics::ToolHelp::{
@@ -145,7 +143,7 @@ unsafe fn belongs_to_user(user_sid: *mut c_void, pid: u32) -> bool {
     // Trying to get the sid of a process of another user will give us an "Access Denied" error.
     // TODO: Consider checking for HRESULT(0x80070005) if we want to return true for other errors to try and kill those processes later.
     p_sid
-        .map(|p_sid| EqualSid(user_sid, p_sid) != 0)
+        .map(|p_sid| EqualSid(user_sid, p_sid) != FALSE)
         .unwrap_or_default()
 }
 
@@ -208,8 +206,8 @@ fn get_processes(name: &str) -> Vec<u32> {
             ..mem::zeroed()
         };
 
-        if Process32FirstW(*handle, &mut process) != 0 {
-            while Process32NextW(*handle, &mut process) != 0 {
+        if Process32FirstW(*handle, &mut process) == TRUE {
+            while Process32NextW(*handle, &mut process) == TRUE {
                 if current_pid != process.th32ProcessID
                     && decode_utf16_lossy(&process.szExeFile).to_lowercase() == name.to_lowercase()
                 {
