@@ -1,19 +1,14 @@
 use core::{mem, ops::Deref, ptr};
 
-use alloc::borrow::ToOwned;
+use alloc::{borrow::ToOwned, vec::Vec};
 use nsis_plugin_api::{encode_utf16, nsis_fn, popstr, push, ONE, ZERO};
 use windows_sys::Win32::{
-    Foundation::{
-        CloseHandle, GetLastError, LocalFree, ERROR_INSUFFICIENT_BUFFER, FALSE, HANDLE, HLOCAL,
-    },
-    System::{
-        Memory::{LocalAlloc, LMEM_FIXED},
-        Threading::{
-            CreateProcessW, InitializeProcThreadAttributeList, OpenProcess,
-            UpdateProcThreadAttribute, CREATE_NEW_PROCESS_GROUP, CREATE_UNICODE_ENVIRONMENT,
-            EXTENDED_STARTUPINFO_PRESENT, PROCESS_CREATE_PROCESS, PROCESS_INFORMATION,
-            PROC_THREAD_ATTRIBUTE_PARENT_PROCESS, STARTUPINFOEXW, STARTUPINFOW,
-        },
+    Foundation::{CloseHandle, GetLastError, ERROR_INSUFFICIENT_BUFFER, FALSE, HANDLE},
+    System::Threading::{
+        CreateProcessW, InitializeProcThreadAttributeList, OpenProcess, UpdateProcThreadAttribute,
+        CREATE_NEW_PROCESS_GROUP, CREATE_UNICODE_ENVIRONMENT, EXTENDED_STARTUPINFO_PRESENT,
+        PROCESS_CREATE_PROCESS, PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_PARENT_PROCESS,
+        STARTUPINFOEXW, STARTUPINFOW,
     },
     UI::WindowsAndMessaging::{GetShellWindow, GetWindowThreadProcessId},
 };
@@ -56,14 +51,12 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
     {
         return false;
     }
-    let Some(attribute_list) = OwnedLocalMemory::new(size) else {
-        return false;
-    };
-    if InitializeProcThreadAttributeList(*attribute_list, 1, 0, &mut size) == FALSE {
+    let mut attribute_list = Vec::with_capacity(size);
+    if InitializeProcThreadAttributeList(attribute_list.as_mut_ptr(), 1, 0, &mut size) == FALSE {
         return false;
     }
     if UpdateProcThreadAttribute(
-        *attribute_list,
+        attribute_list.as_mut_ptr(),
         0,
         PROC_THREAD_ATTRIBUTE_PARENT_PROCESS as _,
         &*handle as *const _ as _,
@@ -79,7 +72,7 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
             cb: mem::size_of::<STARTUPINFOEXW>() as _,
             ..mem::zeroed()
         },
-        lpAttributeList: *attribute_list,
+        lpAttributeList: attribute_list.as_mut_ptr(),
     };
     let process_info = PROCESS_INFORMATION { ..mem::zeroed() };
     let mut command_line = command.to_owned();
@@ -120,33 +113,6 @@ impl Drop for OwnedHandle {
 
 impl Deref for OwnedHandle {
     type Target = HANDLE;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-struct OwnedLocalMemory(HLOCAL);
-
-impl OwnedLocalMemory {
-    fn new(size: usize) -> Option<Self> {
-        let hlocal = unsafe { LocalAlloc(LMEM_FIXED, size) };
-        if hlocal.is_null() {
-            None
-        } else {
-            Some(Self(hlocal))
-        }
-    }
-}
-
-impl Drop for OwnedLocalMemory {
-    fn drop(&mut self) {
-        unsafe { LocalFree(self.0) };
-    }
-}
-
-impl Deref for OwnedLocalMemory {
-    type Target = HLOCAL;
 
     fn deref(&self) -> &Self::Target {
         &self.0
