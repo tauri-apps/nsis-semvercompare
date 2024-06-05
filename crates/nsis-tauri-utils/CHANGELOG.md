@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.4.0]
+
+- [`8818f7c`](https://www.github.com/tauri-apps/nsis-tauri-utils/commit/8818f7cbfbf3f344f74508fccf9068c1eb58f52f) ([#32](https://www.github.com/tauri-apps/nsis-tauri-utils/pull/32)) Add `RunAsUser` to run command as unelevated user
+
 ## \[0.3.0]
 
 - [`5423579`](https://www.github.com/tauri-apps/nsis-tauri-utils/commit/5423579860016c4f3074831eda03096ee4854e73)([#26](https://www.github.com/tauri-apps/nsis-tauri-utils/pull/26)) Reduce the DLL size by using `no_std` and without static msvcrt.
