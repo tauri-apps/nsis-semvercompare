@@ -348,6 +348,6 @@ mod tests {
 
     #[test]
     fn spawn_cmd() {
-        unsafe { run_as_user("cmd", "/c pause") };
+        unsafe { run_as_user("cmd", "/c timeout 3") };
     }
 }
