@@ -206,15 +206,15 @@ fn get_processes(name: &str) -> Vec<u32> {
     let mut processes = Vec::new();
 
     unsafe {
-        let handle = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        let handle = OwnedHandle::new(CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0));
 
         let mut process = PROCESSENTRY32W {
             dwSize: mem::size_of::<PROCESSENTRY32W>() as u32,
             ..mem::zeroed()
         };
 
-        if Process32FirstW(handle, &mut process) != 0 {
-            while Process32NextW(handle, &mut process) != 0 {
+        if Process32FirstW(*handle, &mut process) != 0 {
+            while Process32NextW(*handle, &mut process) != 0 {
                 if current_pid != process.th32ProcessID
                     && decode_utf16_lossy(&process.szExeFile).to_lowercase() == name.to_lowercase()
                 {
@@ -222,8 +222,6 @@ fn get_processes(name: &str) -> Vec<u32> {
                 }
             }
         }
-
-        CloseHandle(handle);
     }
 
     processes
