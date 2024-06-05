@@ -308,7 +308,9 @@ impl OwnedHandle {
 
 impl Drop for OwnedHandle {
     fn drop(&mut self) {
-        unsafe { CloseHandle(self.0) };
+        if !self.is_invalid() {
+            unsafe { CloseHandle(self.0) };
+        }
     }
 }
 
