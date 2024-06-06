@@ -122,16 +122,16 @@ fn KillProcessCurrentUser() -> Result<(), Error> {
     }
 }
 
-/// Run command as unelevated user
+/// Run program as unelevated user
 ///
 /// Needs 2 strings on the stack
-/// $1: command
+/// $1: program
 /// $2: arguments
 #[nsis_fn]
 fn RunAsUser() -> Result<(), Error> {
-    let command = popstr()?;
+    let program = popstr()?;
     let arguments = popstr()?;
-    if run_as_user(&command, &arguments) {
+    if run_as_user(&program, &arguments) {
         push(ZERO)
     } else {
         push(ONE)
@@ -224,7 +224,7 @@ fn get_processes(name: &str) -> Vec<u32> {
 /// Return true if success
 ///
 /// Ported from https://devblogs.microsoft.com/oldnewthing/20190425-00/?p=102443
-unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
+unsafe fn run_as_user(program: &str, arguments: &str) -> bool {
     let hwnd = GetShellWindow();
     if hwnd == 0 {
         return false;
@@ -274,14 +274,14 @@ unsafe fn run_as_user(command: &str, arguments: &str) -> bool {
         lpAttributeList: attribute_list,
     };
     let mut process_info: PROCESS_INFORMATION = mem::zeroed();
-    let mut command_line = command.to_owned();
+    let mut command_line = program.to_owned();
     if !arguments.is_empty() {
         command_line.push(' ');
         command_line.push_str(arguments);
     }
 
     if CreateProcessW(
-        encode_utf16(command).as_ptr(),
+        encode_utf16(program).as_ptr(),
         encode_utf16(&command_line).as_mut_ptr(),
         ptr::null(),
         ptr::null(),
