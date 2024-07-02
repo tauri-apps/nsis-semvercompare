@@ -274,7 +274,7 @@ unsafe fn run_as_user(program: &str, arguments: &str) -> bool {
         lpAttributeList: attribute_list,
     };
     let mut process_info: PROCESS_INFORMATION = mem::zeroed();
-    let mut command_line = program.to_owned();
+    let mut command_line = "\"".to_owned() + program + "\"";
     if !arguments.is_empty() {
         command_line.push(' ');
         command_line.push_str(arguments);
