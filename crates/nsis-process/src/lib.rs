@@ -337,6 +337,7 @@ impl DerefMut for OwnedHandle {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[test]
@@ -359,19 +360,27 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "test")]
     fn spawn_with_spaces() {
+        extern crate std;
+        use alloc::format;
+        use alloc::string::ToString;
+
         let current = std::env::current_dir().unwrap();
 
         let dir = current.join("dir space");
-        std::fs::create_dir_all(dir).unwrap();
+        std::fs::create_dir_all(&dir).unwrap();
 
-        let systemroot = std::env::var("SYSTEMROOT").unwrap_or("C:\\Windows");
+        let systemroot = std::env::var("SYSTEMROOT").unwrap_or_else(|_| "C:\\Windows".to_owned());
 
-        let cmd = format!("{systemroot}\\System32\\cmd.exe");        
-        let cmd_out = dir.join("cmdout.exe"); 
+        let cmd = format!("{systemroot}\\System32\\cmd.exe");
+        let cmd_out = dir.join("cmdout.exe");
 
-        std::fs::copy(cmd, cmd_out).unwrap();
+        std::fs::copy(cmd, &cmd_out).unwrap();
 
-        unsafe { run_as_user(cmd_out.display().to_string().as_str(), "/c timeout 3") };
+        assert!(unsafe { run_as_user(cmd_out.display().to_string().as_str(), "/c timeout 3") });
+
+        std::thread::sleep(std::time::Duration::from_secs(5));
+        std::fs::remove_file(cmd_out).unwrap();
     }
 }
