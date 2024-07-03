@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.4.1]
+
+- [`3cb9d91`](https://www.github.com/tauri-apps/nsis-tauri-utils/commit/3cb9d9126a3e269ddfcf96617de08a73402182f2) ([#35](https://www.github.com/tauri-apps/nsis-tauri-utils/pull/35) by [@Legend-Master](https://www.github.com/tauri-apps/nsis-tauri-utils/../../Legend-Master)) Fix can't launch the app sometimes if the program path contains spaces
+
 ## \[0.4.0]
 
 - [`8818f7c`](https://www.github.com/tauri-apps/nsis-tauri-utils/commit/8818f7cbfbf3f344f74508fccf9068c1eb58f52f) ([#32](https://www.github.com/tauri-apps/nsis-tauri-utils/pull/32)) Add `RunAsUser` to run command as unelevated user
