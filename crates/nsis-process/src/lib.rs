@@ -274,7 +274,7 @@ unsafe fn run_as_user(program: &str, arguments: &str) -> bool {
         lpAttributeList: attribute_list,
     };
     let mut process_info: PROCESS_INFORMATION = mem::zeroed();
-    let mut command_line = program.to_owned();
+    let mut command_line = "\"".to_owned() + program + "\"";
     if !arguments.is_empty() {
         command_line.push(' ');
         command_line.push_str(arguments);
@@ -337,6 +337,7 @@ impl DerefMut for OwnedHandle {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[test]
@@ -356,5 +357,30 @@ mod tests {
     #[test]
     fn spawn_cmd() {
         unsafe { run_as_user("cmd", "/c timeout 3") };
+    }
+
+    #[test]
+    #[cfg(feature = "test")]
+    fn spawn_with_spaces() {
+        extern crate std;
+        use alloc::format;
+        use alloc::string::ToString;
+
+        let current = std::env::current_dir().unwrap();
+
+        let dir = current.join("dir space");
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let systemroot = std::env::var("SYSTEMROOT").unwrap_or_else(|_| "C:\\Windows".to_owned());
+
+        let cmd = format!("{systemroot}\\System32\\cmd.exe");
+        let cmd_out = dir.join("cmdout.exe");
+
+        std::fs::copy(cmd, &cmd_out).unwrap();
+
+        assert!(unsafe { run_as_user(cmd_out.display().to_string().as_str(), "/c timeout 3") });
+
+        std::thread::sleep(std::time::Duration::from_secs(5));
+        std::fs::remove_file(cmd_out).unwrap();
     }
 }
