@@ -361,17 +361,17 @@ mod tests {
     #[test]
     fn spawn_with_spaces() {
         let current = std::env::current_dir().unwrap();
-        
+
         let dir = current.join("dir space");
         std::fs::create_dir_all(dir).unwrap();
 
         let systemroot = std::env::var("SYSTEMROOT").unwrap_or("C:\\Windows");
-        
+
         let cmd = format!("{systemroot}\\System32\\cmd.exe");        
         let cmd_out = dir.join("cmdout.exe"); 
-        
+
         std::fs::copy(cmd, cmd_out).unwrap();
-        
+
         unsafe { run_as_user(cmd_out.display().to_string().as_str(), "/c timeout 3") };
     }
 }
