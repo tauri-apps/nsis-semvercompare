@@ -161,7 +161,7 @@ unsafe fn get_sid(pid: u32) -> Option<*mut c_void> {
         return None;
     }
 
-    let mut token_handle = OwnedHandle::new(HANDLE::default());
+    let mut token_handle = OwnedHandle::new(ptr::null_mut());
     if OpenProcessToken(*handle, TOKEN_QUERY, &mut *token_handle) == FALSE {
         return None;
     }
@@ -226,7 +226,7 @@ fn get_processes(name: &str) -> Vec<u32> {
 /// Ported from https://devblogs.microsoft.com/oldnewthing/20190425-00/?p=102443
 unsafe fn run_as_user(program: &str, arguments: &str) -> bool {
     let hwnd = GetShellWindow();
-    if hwnd == 0 {
+    if hwnd.is_null() {
         return false;
     }
 
@@ -309,7 +309,7 @@ impl OwnedHandle {
     }
 
     fn is_invalid(&self) -> bool {
-        self.0 == 0
+        self.0.is_null()
     }
 }
 
