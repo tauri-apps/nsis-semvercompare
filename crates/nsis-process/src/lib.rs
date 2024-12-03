@@ -7,7 +7,10 @@ use core::{ffi::c_void, mem, ops::Deref, ops::DerefMut, ptr};
 
 use nsis_plugin_api::*;
 use windows_sys::Win32::{
-    Foundation::{CloseHandle, GetLastError, ERROR_INSUFFICIENT_BUFFER, FALSE, HANDLE, TRUE},
+    Foundation::{
+        CloseHandle, GetLastError, ERROR_ELEVATION_REQUIRED, ERROR_INSUFFICIENT_BUFFER, FALSE,
+        HANDLE, TRUE,
+    },
     Security::{EqualSid, GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER},
     System::{
         Diagnostics::ToolHelp::{
@@ -23,7 +26,10 @@ use windows_sys::Win32::{
             STARTUPINFOEXW, STARTUPINFOW,
         },
     },
-    UI::WindowsAndMessaging::{GetShellWindow, GetWindowThreadProcessId},
+    UI::{
+        Shell::ShellExecuteW,
+        WindowsAndMessaging::{GetShellWindow, GetWindowThreadProcessId, SW_SHOW},
+    },
 };
 
 nsis_plugin!();
@@ -280,8 +286,10 @@ unsafe fn run_as_user(program: &str, arguments: &str) -> bool {
         command_line.push_str(arguments);
     }
 
+    let program_wide = encode_utf16(program);
+
     if CreateProcessW(
-        encode_utf16(program).as_ptr(),
+        program_wide.as_ptr(),
         encode_utf16(&command_line).as_mut_ptr(),
         ptr::null(),
         ptr::null(),
@@ -291,13 +299,23 @@ unsafe fn run_as_user(program: &str, arguments: &str) -> bool {
         ptr::null(),
         &startup_info as *const _ as _,
         &mut process_info,
-    ) == FALSE
+    ) != FALSE
     {
-        false
-    } else {
         CloseHandle(process_info.hProcess);
         CloseHandle(process_info.hThread);
         true
+    } else if GetLastError() == ERROR_ELEVATION_REQUIRED {
+        let result = ShellExecuteW(
+            ptr::null_mut(),
+            encode_utf16("open").as_ptr(),
+            program_wide.as_ptr(),
+            encode_utf16(&command_line).as_ptr(),
+            ptr::null(),
+            SW_SHOW,
+        );
+        result as isize <= 32
+    } else {
+        false
     }
 }
 
