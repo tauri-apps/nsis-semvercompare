@@ -6,24 +6,33 @@ use alloc::{borrow::ToOwned, vec, vec::Vec};
 use core::{ffi::c_void, mem, ops::Deref, ops::DerefMut, ptr};
 
 use nsis_plugin_api::*;
-use windows_sys::Win32::{
-    Foundation::{CloseHandle, GetLastError, ERROR_INSUFFICIENT_BUFFER, FALSE, HANDLE, TRUE},
-    Security::{EqualSid, GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER},
-    System::{
-        Diagnostics::ToolHelp::{
-            CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
-            TH32CS_SNAPPROCESS,
+use windows_sys::{
+    w,
+    Win32::{
+        Foundation::{
+            CloseHandle, GetLastError, ERROR_ELEVATION_REQUIRED, ERROR_INSUFFICIENT_BUFFER, FALSE,
+            HANDLE, TRUE,
         },
-        Threading::{
-            CreateProcessW, GetCurrentProcessId, InitializeProcThreadAttributeList, OpenProcess,
-            OpenProcessToken, TerminateProcess, UpdateProcThreadAttribute,
-            CREATE_NEW_PROCESS_GROUP, CREATE_UNICODE_ENVIRONMENT, EXTENDED_STARTUPINFO_PRESENT,
-            LPPROC_THREAD_ATTRIBUTE_LIST, PROCESS_CREATE_PROCESS, PROCESS_INFORMATION,
-            PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE, PROC_THREAD_ATTRIBUTE_PARENT_PROCESS,
-            STARTUPINFOEXW, STARTUPINFOW,
+        Security::{EqualSid, GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER},
+        System::{
+            Diagnostics::ToolHelp::{
+                CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+                TH32CS_SNAPPROCESS,
+            },
+            Threading::{
+                CreateProcessW, GetCurrentProcessId, InitializeProcThreadAttributeList,
+                OpenProcess, OpenProcessToken, TerminateProcess, UpdateProcThreadAttribute,
+                CREATE_NEW_PROCESS_GROUP, CREATE_UNICODE_ENVIRONMENT, EXTENDED_STARTUPINFO_PRESENT,
+                LPPROC_THREAD_ATTRIBUTE_LIST, PROCESS_CREATE_PROCESS, PROCESS_INFORMATION,
+                PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE, PROC_THREAD_ATTRIBUTE_PARENT_PROCESS,
+                STARTUPINFOEXW, STARTUPINFOW,
+            },
+        },
+        UI::{
+            Shell::ShellExecuteW,
+            WindowsAndMessaging::{GetShellWindow, GetWindowThreadProcessId, SW_SHOW},
         },
     },
-    UI::WindowsAndMessaging::{GetShellWindow, GetWindowThreadProcessId},
 };
 
 nsis_plugin!();
@@ -280,8 +289,10 @@ unsafe fn run_as_user(program: &str, arguments: &str) -> bool {
         command_line.push_str(arguments);
     }
 
+    let program_wide = encode_utf16(program);
+
     if CreateProcessW(
-        encode_utf16(program).as_ptr(),
+        program_wide.as_ptr(),
         encode_utf16(&command_line).as_mut_ptr(),
         ptr::null(),
         ptr::null(),
@@ -291,13 +302,23 @@ unsafe fn run_as_user(program: &str, arguments: &str) -> bool {
         ptr::null(),
         &startup_info as *const _ as _,
         &mut process_info,
-    ) == FALSE
+    ) != FALSE
     {
-        false
-    } else {
         CloseHandle(process_info.hProcess);
         CloseHandle(process_info.hThread);
         true
+    } else if GetLastError() == ERROR_ELEVATION_REQUIRED {
+        let result = ShellExecuteW(
+            ptr::null_mut(),
+            w!("open"),
+            program_wide.as_ptr(),
+            encode_utf16(&command_line).as_ptr(),
+            ptr::null(),
+            SW_SHOW,
+        );
+        result as isize > 32
+    } else {
+        false
     }
 }
 
