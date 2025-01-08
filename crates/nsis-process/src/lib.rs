@@ -6,6 +6,7 @@ use alloc::{borrow::ToOwned, vec, vec::Vec};
 use core::{ffi::c_void, mem, ops::Deref, ops::DerefMut, ptr};
 
 use nsis_plugin_api::*;
+use windows_sys::Win32::Foundation::{ERROR_ACCESS_DENIED, ERROR_INVALID_PARAMETER};
 use windows_sys::{
     w,
     Win32::{
@@ -34,7 +35,6 @@ use windows_sys::{
         },
     },
 };
-use windows_sys::Win32::Foundation::{ERROR_ACCESS_DENIED, ERROR_INVALID_PARAMETER};
 
 nsis_plugin!();
 
