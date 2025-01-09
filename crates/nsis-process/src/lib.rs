@@ -175,7 +175,7 @@ fn kill(pid: u32) -> bool {
             // `OpenProcess` would fail with ERROR_ACCESS_DENIED instead.
             return error == ERROR_ACCESS_DENIED;
         }
-        return true;
+        true
     }
 }
 
