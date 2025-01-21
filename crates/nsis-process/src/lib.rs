@@ -6,6 +6,7 @@ use alloc::{borrow::ToOwned, vec, vec::Vec};
 use core::{ffi::c_void, mem, ops::Deref, ops::DerefMut, ptr};
 
 use nsis_plugin_api::*;
+use windows_sys::Win32::Foundation::{ERROR_ACCESS_DENIED, ERROR_INVALID_PARAMETER};
 use windows_sys::{
     w,
     Win32::{
@@ -158,8 +159,23 @@ unsafe fn belongs_to_user(user_sid: *mut c_void, pid: u32) -> bool {
 
 fn kill(pid: u32) -> bool {
     unsafe {
-        let handle = OwnedHandle::new(OpenProcess(PROCESS_TERMINATE, 0, pid));
-        TerminateProcess(*handle, 1) == TRUE
+        let handle = OpenProcess(PROCESS_TERMINATE, 0, pid);
+        if handle.is_null() {
+            let error = GetLastError();
+            // ERROR_INVALID_PARAMETER will occur if the process is already terminated
+            return error == ERROR_INVALID_PARAMETER;
+        }
+
+        let handle = OwnedHandle::new(handle);
+        if TerminateProcess(*handle, 1) == FALSE {
+            let error = GetLastError();
+            // ERROR_ACCESS_DENIED will occur if the process is terminated
+            // between OpenProcess and TerminateProcess.
+            // If current process lacks permission to terminate process,
+            // `OpenProcess` would fail with ERROR_ACCESS_DENIED instead.
+            return error == ERROR_ACCESS_DENIED;
+        }
+        true
     }
 }
 
